@@ -13,6 +13,8 @@ void OutputLagrangePolynomial(std::vector<std::vector<double>> Table, std::ostre
 std::vector<std::vector<double>> GetTableByFunction(std::vector<double> Arguments, std::string expression_str);
 std::vector<exprtk::expression<double>> MakeExpressionTable(std::vector<exprtk::symbol_table<double>> SymbolTable,
                                                             std::string ExpressionString, int Size);
+void VectorOutput(std::vector<double> Vector, std::ostream& Stream);
+std::vector<double> GetDeviations(std::vector<std::vector<double>> Table);
 
 int main()
 {
@@ -40,6 +42,8 @@ int main()
     std::string Function; //Строка для ввода функции (для режима 2)
     std::vector<std::vector<double>> Table(2, std::vector<double>(AmountOfValues)); //Таблица значений, используюется в двух режимах
     std::vector<double> ArgumentValuesArray(AmountOfValues); //Массив значений аргументов (для режима 2)
+    std::vector<double> Deviations(AmountOfValues); //Отклонения
+    double MaxDeviation = 0.0; //Максимальное отклонение
     switch (SelectedMode)
     {
     case '1':
@@ -61,6 +65,13 @@ int main()
         std::cout << "Таблица значений функции: " << std::endl;
         TableOutput(Table, std::cout);
         OutputLagrangePolynomial(Table, std::cout);
+        Deviations = GetDeviations(Table);
+        std::cout << std::endl << "Отклонения: " << std::endl;
+        VectorOutput(Deviations, std::cout);
+        for (int i = 0; i < Deviations.size(); i++)
+            MaxDeviation = std::max(MaxDeviation, Deviations[i]);
+        std::cout << "Максимальное отклонение: " << std::endl;
+        std::cout << MaxDeviation;
         break;
     default:
         std::cout << "Режим не был выбран." << std::endl;
@@ -193,4 +204,18 @@ std::vector<exprtk::expression<double>> MakeExpressionTable(std::vector<exprtk::
         if (!Parser.compile(ExpressionString, Expression[i]))
             std::cout << "Ошибка в выражении!\n";
     return Expression; //Возвращается вектор скомпилированных выражений
+}
+//Подсчитывает отклонения
+std::vector<double> GetDeviations(std::vector<std::vector<double>> Table)
+{
+    std::vector<double> Deviations(Table[0].size());
+    for(int i = 0; i < Table[0].size(); i++)
+        Deviations[i] = fabs(Table[1][i] - LagrangeInterpolation(Table, Table[0][i]));
+    return Deviations;
+}
+//Вывод вектора
+void VectorOutput(std::vector<double> Vector, std::ostream& Stream)
+{
+    for (int i = 0; i < Vector.size(); i++)
+        Stream << Vector[i] << std::endl;
 }
