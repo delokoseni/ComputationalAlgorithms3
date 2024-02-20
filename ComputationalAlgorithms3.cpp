@@ -5,11 +5,11 @@
 #include "exprtk.hpp"
 
 int GetAmountOfValues(std::string FileName);
-std::vector<std::vector<double>> GetFunctionValueTable(std::string FileName, int AmountOfValues);
+std::vector<std::vector<double>> GetFunctionValueTable(std::ifstream& File, int AmountOfValues);
 double LagrangeInterpolation(std::vector<std::vector<double>> Table, int AmountOfValues, double PointX);
 void TableOutput(std::vector<std::vector<double>> Table, int AmountOfValues, std::ostream& Stream);
 std::vector<std::vector<double>> InputFunction(std::vector<double> Arguments, int AmountOfValues, const std::string& expression_str);
-std::vector<double> GetArgumentValuesArray(std::string FileName, int AmountOfValues);
+std::vector<double> GetArgumentValuesArray(std::ifstream& File, int AmountOfValues);
 void OutputLagrangeInterpolation(std::vector<std::vector<double>> Table, int AmountOfValues);
 
 int main()
@@ -28,12 +28,16 @@ int main()
     std::string Function; //Строка для ввода функции (Б)
     std::string ArgumentValuesArrayFileName = "ArgumentValuesArray.txt";
     std::vector<double> ArgumentValuesArray(AmountOfValues);
+    std::ifstream FunctionValueTableFile;
+    FunctionValueTableFile.open(FunctionValueTableFileName);
+    std::ifstream ArgumentValuesArrayFile;
+    ArgumentValuesArrayFile.open(ArgumentValuesArrayFileName);
     std::cout << "Режим: ";
     std::cin >> SelectedMode;
     switch (SelectedMode)
     {
     case '1':
-        Table = GetFunctionValueTable(FunctionValueTableFileName, AmountOfValues);
+        Table = GetFunctionValueTable(FunctionValueTableFile, AmountOfValues);
         std::cout << "Таблица значений функции: " << std::endl;
         TableOutput(Table, AmountOfValues, std::cout);
         std::cout << "Введите точку для определения приближенного значения функции: ";
@@ -43,9 +47,9 @@ int main()
         break;
     case '2':
         std::cout << "Пример функции: sqrt(abs(x))" << std::endl;
-        std::cout << "Введите функцию в аналитическом виде: ";
+        std::cout << "Введите функцию в аналитическом виде: y=";
         std::cin >> Function;
-        ArgumentValuesArray = GetArgumentValuesArray(ArgumentValuesArrayFileName, AmountOfValues);
+        ArgumentValuesArray = GetArgumentValuesArray(ArgumentValuesArrayFile, AmountOfValues);
         Table = InputFunction(ArgumentValuesArray, AmountOfValues, Function);
         std::cout << "Таблица значений функции: " << std::endl;
         TableOutput(Table, AmountOfValues, std::cout);
@@ -72,25 +76,15 @@ int GetAmountOfValues(std::string FileName)
     }
     return AmountOfValues;
 }
-
-std::vector<std::vector<double>> GetFunctionValueTable(std::string FileName, int AmountOfValues)
+//Ввод таблицы значений аргументов и функции
+std::vector<std::vector<double>> GetFunctionValueTable(std::ifstream &File, int AmountOfValues)
 {
-    std::ifstream FunctionValueTableFile;
     std::vector<std::vector<double>> Table(2, std::vector<double>(AmountOfValues));
-    try
-    {
-        FunctionValueTableFile.open(FileName);
-        for (int i = 0; i < 2; i++)
-            for (int j = 0; j < AmountOfValues; j++)
-                FunctionValueTableFile >> Table[i][j];
-    }
-    catch (const std::exception& Exception)
-    {
-        std::cout << Exception.what() << std::endl;
-    }
+    for (int i = 0; i < 2; i++)
+        Table[i] = GetArgumentValuesArray(File, AmountOfValues);
     return Table;
 }
-
+//Вычисление значения функции когда аргумент равен PointX при помощи полинома
 double LagrangeInterpolation(std::vector<std::vector<double>> Table, int AmountOfValues, double PointX)
 {
     double Polynomial = 0.0;
@@ -105,11 +99,15 @@ double LagrangeInterpolation(std::vector<std::vector<double>> Table, int AmountO
     }
     return Polynomial;
 }
-
+//Вывод таблицы значений функции и аргумента
 void TableOutput(std::vector<std::vector<double>> Table, int AmountOfValues, std::ostream& Stream)
 {
     for (int i = 0; i < 2; i++)
     {
+        if (i == 0)
+            std::cout << "x\t\t";
+        else
+            std::cout << "y\t\t";
         for (int j = 0; j < AmountOfValues; j++)
         {
             Stream << Table[i][j] << "\t\t";
@@ -145,16 +143,14 @@ std::vector<std::vector<double>> InputFunction(std::vector<double> Arguments, in
 
     return Table;
 }
-
-std::vector<double> GetArgumentValuesArray(std::string FileName, int AmountOfValues)
+//Ввод массива значений аргумента
+std::vector<double> GetArgumentValuesArray(std::ifstream &File, int AmountOfValues)
 {
     std::vector<double> Arguments(AmountOfValues);
-    std::ifstream ArgumentValuesArrayFile;
     try
     {
-        ArgumentValuesArrayFile.open(FileName);
         for (int i = 0; i < AmountOfValues; i++)
-            ArgumentValuesArrayFile >> Arguments[i];
+            File >> Arguments[i];
     }
     catch (const std::exception& Exception)
     {
@@ -162,7 +158,7 @@ std::vector<double> GetArgumentValuesArray(std::string FileName, int AmountOfVal
     }
     return Arguments;
 }
-
+//Вывод интерполяционного полинома Лагранжа (можно добавить вывод в файл)
 void OutputLagrangeInterpolation(std::vector<std::vector<double>> Table, int AmountOfValues)
 {
     std::cout << "y=";
