@@ -5,12 +5,12 @@
 #include "exprtk.hpp"
 
 int GetAmountOfValues(std::string FileName);
-std::vector<std::vector<double>> GetFunctionValueTable(std::ifstream& File, int AmountOfValues);
-double LagrangeInterpolation(std::vector<std::vector<double>> Table, int AmountOfValues, double PointX);
-void TableOutput(std::vector<std::vector<double>> Table, int AmountOfValues, std::ostream& Stream);
-std::vector<std::vector<double>> InputFunction(std::vector<double> Arguments, int AmountOfValues, const std::string& expression_str);
 std::vector<double> GetArgumentValuesArray(std::ifstream& File, int AmountOfValues);
-void OutputLagrangeInterpolation(std::vector<std::vector<double>> Table, int AmountOfValues);
+std::vector<std::vector<double>> GetFunctionValueTable(std::ifstream& File, int AmountOfValues);
+void TableOutput(std::vector<std::vector<double>> Table, std::ostream& Stream);
+double LagrangeInterpolation(std::vector<std::vector<double>> Table, double PointX);
+void OutputLagrangeInterpolation(std::vector<std::vector<double>> Table);
+std::vector<std::vector<double>> InputFunction(std::vector<double> Arguments, const std::string& expression_str);
 
 int main()
 {
@@ -39,21 +39,21 @@ int main()
     case '1':
         Table = GetFunctionValueTable(FunctionValueTableFile, AmountOfValues);
         std::cout << "Таблица значений функции: " << std::endl;
-        TableOutput(Table, AmountOfValues, std::cout);
+        TableOutput(Table, std::cout);
         std::cout << "Введите точку для определения приближенного значения функции: ";
         double PointX;
         std::cin >> PointX;
-        std::cout << LagrangeInterpolation(Table, AmountOfValues, PointX);
+        std::cout << LagrangeInterpolation(Table, PointX);
         break;
     case '2':
         std::cout << "Пример функции: sqrt(abs(x))" << std::endl;
         std::cout << "Введите функцию в аналитическом виде: y=";
         std::cin >> Function;
         ArgumentValuesArray = GetArgumentValuesArray(ArgumentValuesArrayFile, AmountOfValues);
-        Table = InputFunction(ArgumentValuesArray, AmountOfValues, Function);
+        Table = InputFunction(ArgumentValuesArray, Function);
         std::cout << "Таблица значений функции: " << std::endl;
-        TableOutput(Table, AmountOfValues, std::cout);
-        OutputLagrangeInterpolation(Table, AmountOfValues);
+        TableOutput(Table, std::cout);
+        OutputLagrangeInterpolation(Table);
         break;
     default:
         std::cout << "Режим не был выбран." << std::endl;
@@ -85,13 +85,13 @@ std::vector<std::vector<double>> GetFunctionValueTable(std::ifstream &File, int 
     return Table;
 }
 //Вычисление значения функции когда аргумент равен PointX при помощи полинома
-double LagrangeInterpolation(std::vector<std::vector<double>> Table, int AmountOfValues, double PointX)
+double LagrangeInterpolation(std::vector<std::vector<double>> Table, double PointX)
 {
     double Polynomial = 0.0;
     double X = 1.0;
-    for (int i = 0; i < AmountOfValues; i++)
+    for (int i = 0; i < Table[0].size(); i++)
     {
-        for (int j = 0; j < AmountOfValues; j++)
+        for (int j = 0; j < Table[0].size(); j++)
             if (i != j)
                 X *= (PointX - Table[0][j]) / (Table[0][i] - Table[0][j]);
         Polynomial += Table[1][i] * X;
@@ -100,7 +100,7 @@ double LagrangeInterpolation(std::vector<std::vector<double>> Table, int AmountO
     return Polynomial;
 }
 //Вывод таблицы значений функции и аргумента
-void TableOutput(std::vector<std::vector<double>> Table, int AmountOfValues, std::ostream& Stream)
+void TableOutput(std::vector<std::vector<double>> Table, std::ostream& Stream)
 {
     for (int i = 0; i < 2; i++)
     {
@@ -108,7 +108,7 @@ void TableOutput(std::vector<std::vector<double>> Table, int AmountOfValues, std
             std::cout << "x\t\t";
         else
             std::cout << "y\t\t";
-        for (int j = 0; j < AmountOfValues; j++)
+        for (int j = 0; j < Table[i].size(); j++)
         {
             Stream << Table[i][j] << "\t\t";
         }
@@ -116,26 +116,26 @@ void TableOutput(std::vector<std::vector<double>> Table, int AmountOfValues, std
     }
 }
 
-std::vector<std::vector<double>> InputFunction(std::vector<double> Arguments, int AmountOfValues, const std::string& ExpressionString)
+std::vector<std::vector<double>> InputFunction(std::vector<double> Arguments, const std::string& ExpressionString)
 {
-    std::vector < exprtk::symbol_table<double>> SymbolTable(AmountOfValues);
-    for (int i = 0; i < AmountOfValues; i++) {
+    std::vector < exprtk::symbol_table<double>> SymbolTable(Arguments.size());
+    for (int i = 0; i < Arguments.size(); i++) {
         SymbolTable[i].add_variable("x", Arguments[i]);
         SymbolTable[i].add_function("abs", abs);
         SymbolTable[i].add_function("sqrt", sqrt);
         SymbolTable[i].add_function("exp", exp);
     }
-    std::vector<exprtk::expression<double>> Expression(AmountOfValues);
-    for (int i = 0; i < AmountOfValues; i++)
+    std::vector<exprtk::expression<double>> Expression(Arguments.size());
+    for (int i = 0; i < Arguments.size(); i++)
         Expression[i].register_symbol_table(SymbolTable[i]);
 
     exprtk::parser<double> Parser;
-    for (int i = 0; i < AmountOfValues; i++)
+    for (int i = 0; i < Arguments.size(); i++)
         if (!Parser.compile(ExpressionString, Expression[i]))
             std::cout << "Ошибка в выражении!\n";
 
-    std::vector<std::vector<double>> Table(2, std::vector<double>(AmountOfValues));
-    for (int i = 0; i < AmountOfValues; i++)
+    std::vector<std::vector<double>> Table(2, std::vector<double>(Arguments.size()));
+    for (int i = 0; i < Arguments.size(); i++)
     {
         Table[0][i] = Arguments[i];
         Table[1][i] = Expression[i].value();
@@ -159,17 +159,19 @@ std::vector<double> GetArgumentValuesArray(std::ifstream &File, int AmountOfValu
     return Arguments;
 }
 //Вывод интерполяционного полинома Лагранжа (можно добавить вывод в файл)
-void OutputLagrangeInterpolation(std::vector<std::vector<double>> Table, int AmountOfValues)
+void OutputLagrangeInterpolation(std::vector<std::vector<double>> Table)
 {
     std::cout << "y=";
-    for (int i = 0; i < AmountOfValues; i++)
+    for (int i = 0; i < Table[0].size(); i++)
     {
         std::cout << Table[1][i];
-        for (int j = 0; j < AmountOfValues; j++) {
+        for (int j = 0; j < Table[0].size(); j++) {
             if (i != j)
                 std::cout << "*(x-" << Table[0][j] << ")/(" << Table[0][i] << "-" << Table[0][j] << ")";
-            if ((j + 1) % AmountOfValues == 0 && (i + 1) != AmountOfValues)
+            if ((j + 1) % Table[0].size() == 0 && (i + 1) != Table[0].size())
                 std::cout << "+";
         }
     }
 }
+
+
