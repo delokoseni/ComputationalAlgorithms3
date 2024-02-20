@@ -10,7 +10,10 @@ std::vector<std::vector<double>> GetFunctionValueTable(std::ifstream& File, int 
 void TableOutput(std::vector<std::vector<double>> Table, std::ostream& Stream);
 double LagrangeInterpolation(std::vector<std::vector<double>> Table, double PointX);
 void OutputLagrangeInterpolation(std::vector<std::vector<double>> Table);
-std::vector<std::vector<double>> InputFunction(std::vector<double> Arguments, const std::string& expression_str);
+std::vector<std::vector<double>> InputFunction(std::vector<double> Arguments, std::string expression_str);
+std::vector<exprtk::symbol_table<double>> CreateSymbolTable(std::vector<double> Arguments);
+std::vector<exprtk::expression<double>> MakeExpressionTable(std::vector<exprtk::symbol_table<double>> SymbolTable,
+                                                            std::string ExpressionString, int Size);
 
 int main()
 {
@@ -60,7 +63,7 @@ int main()
     }
     return 0;
 }
-
+//Получить количество аргументов из файла
 int GetAmountOfValues(std::string FileName)
 {
     std::ifstream AmountOfValuesFile;
@@ -69,6 +72,7 @@ int GetAmountOfValues(std::string FileName)
     {
         AmountOfValuesFile.open(FileName);
         AmountOfValuesFile >> AmountOfValues;
+        AmountOfValuesFile.close();
     }
     catch (const std::exception& Exception)
     {
@@ -115,34 +119,6 @@ void TableOutput(std::vector<std::vector<double>> Table, std::ostream& Stream)
         Stream << std::endl;
     }
 }
-
-std::vector<std::vector<double>> InputFunction(std::vector<double> Arguments, const std::string& ExpressionString)
-{
-    std::vector < exprtk::symbol_table<double>> SymbolTable(Arguments.size());
-    for (int i = 0; i < Arguments.size(); i++) {
-        SymbolTable[i].add_variable("x", Arguments[i]);
-        SymbolTable[i].add_function("abs", abs);
-        SymbolTable[i].add_function("sqrt", sqrt);
-        SymbolTable[i].add_function("exp", exp);
-    }
-    std::vector<exprtk::expression<double>> Expression(Arguments.size());
-    for (int i = 0; i < Arguments.size(); i++)
-        Expression[i].register_symbol_table(SymbolTable[i]);
-
-    exprtk::parser<double> Parser;
-    for (int i = 0; i < Arguments.size(); i++)
-        if (!Parser.compile(ExpressionString, Expression[i]))
-            std::cout << "Ошибка в выражении!\n";
-
-    std::vector<std::vector<double>> Table(2, std::vector<double>(Arguments.size()));
-    for (int i = 0; i < Arguments.size(); i++)
-    {
-        Table[0][i] = Arguments[i];
-        Table[1][i] = Expression[i].value();
-    }
-
-    return Table;
-}
 //Ввод массива значений аргумента
 std::vector<double> GetArgumentValuesArray(std::ifstream &File, int AmountOfValues)
 {
@@ -174,4 +150,48 @@ void OutputLagrangeInterpolation(std::vector<std::vector<double>> Table)
     }
 }
 
+std::vector<std::vector<double>> InputFunction(std::vector<double> Arguments, std::string ExpressionString)
+{
+    std::vector<exprtk::symbol_table<double>> SymbolTable(Arguments.size());
+    for (int i = 0; i < Arguments.size(); i++) {
+        SymbolTable[i].add_variable("x", Arguments[i]);
+        SymbolTable[i].add_function("abs", abs);
+        SymbolTable[i].add_function("sqrt", sqrt);
+        SymbolTable[i].add_function("exp", exp);
+    }
+    //Создает выражения, вычисляются значения функции
+    std::vector<exprtk::expression<double>> Expression = MakeExpressionTable(SymbolTable, ExpressionString, Arguments.size());
+    std::vector<std::vector<double>> Table(2, std::vector<double>(Arguments.size()));
+    for (int i = 0; i < Arguments.size(); i++) //Заполняет таблицу аргументами и значениями функции
+    {
+        Table[0][i] = Arguments[i];
+        Table[1][i] = Expression[i].value();
+    }
+    return Table;
+}
+//Создает таблциу переменных, добавляет функции
+std::vector<exprtk::symbol_table<double>> CreateSymbolTable(std::vector<double> Arguments)
+{
+    std::vector<exprtk::symbol_table<double>> SymbolTable(Arguments.size());
+    for (int i = 0; i < Arguments.size(); i++) {
+        SymbolTable[i].add_variable("x", Arguments[i]);
+        SymbolTable[i].add_function("abs", abs);
+        SymbolTable[i].add_function("sqrt", sqrt);
+        SymbolTable[i].add_function("exp", exp);
+    }
+    return SymbolTable;
+}
+//Создает выражения, вычисляются значения функции
+std::vector<exprtk::expression<double>> MakeExpressionTable(std::vector<exprtk::symbol_table<double>> SymbolTable,
+                                                            std::string ExpressionString, int Size)
+{
+    std::vector<exprtk::expression<double>> Expression(Size);
+    for (int i = 0; i < Size; i++)
+        Expression[i].register_symbol_table(SymbolTable[i]);
 
+    exprtk::parser<double> Parser;
+    for (int i = 0; i < Size; i++)
+        if (!Parser.compile(ExpressionString, Expression[i]))
+            std::cout << "Ошибка в выражении!\n";
+    return Expression;
+}
